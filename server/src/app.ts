@@ -1,10 +1,10 @@
 import { Server } from 'socket.io';
 
 
-interface Client {
+interface User {
   id: string;
-  name?: string;
-  time?: number;
+  name: string;
+  time: number;
 }
 
 const express = require('express');
@@ -16,59 +16,85 @@ const io = new Server(http, {
   },
 })
 
-const host = 'localhost';
+const host = '192.168.5.48';
 const port = 3001;
 
-let clients: Client[] = [];
+class PlanningPoker {
+  users: User[];
+
+  constructor() {
+    this.users = [];
+  }
+  
+  add (user: User) {
+    this.users.push(user);
+  }
+
+  updateUser (user: Partial<User>) {
+    const userIndex = this.users.findIndex(({ id }) => id === user.id);
+
+    this.users.splice(
+      userIndex,
+      1,
+      {
+        ...this.users[userIndex],
+        ...user,
+      },
+    );
+  }
+
+  removeUser (id: string) {
+    const userId = this.users.findIndex(({ id: userId }) => userId === id);
+
+    this.users.splice(userId, 1);
+  }
+}
+
+const planningPoker = new PlanningPoker();
+
+const { users } = planningPoker;
 
 io.on('connection', (socket) => {
+  console.log(`Новое подключение: ${socket.id}`);
+
   socket.emit('client_connect', socket.id);
 
-  socket.emit('change_client_info', clients);
+  socket.emit('change_users', planningPoker.users);
 
-  socket.on('message', (id: string, client: string) => {
-    const currentClientIndex = clients.findIndex(({ id: clientId }) => clientId === id);
-    const currentClient: Client = currentClientIndex !== -1
-      ? clients[currentClientIndex]
+  socket.on('add_user', (id: string, client: string) => {
+    const currentClientIndex = users.findIndex(({ id: clientId }) => clientId === id);
+    const currentClient: User = currentClientIndex !== -1
+      ? users[currentClientIndex]
       : {
         id,
         name: client,
+        time: 0,
       };
 
-    const actualClients: Client[] = currentClientIndex !== -1
-      ? [...clients].splice(
-        currentClientIndex,
-        1,
-        currentClient,
-      )
-      : [ ...clients, currentClient ];
-    clients = [...actualClients];
+    planningPoker.add(currentClient);
 
-    io.sockets.emit('change_client_info', actualClients);
+    io.sockets.emit('change_users', planningPoker.users);
   });
 
   socket.on('choose_time', (id: string, time: number) => {
-    const currentClientIndex = clients.findIndex(({ id: clientId }) => clientId === id);
+    const currentClientIndex = users.findIndex(({ id: clientId }) => clientId === id);
     if (currentClientIndex === -1) return;
-    const arr = [...clients];
-    arr.splice(
-      currentClientIndex,
-      1,
-      {
-        ...clients[currentClientIndex],
-        time,
-      },
-    );
 
-    clients = arr;
+    planningPoker.updateUser({
+      ...users[currentClientIndex],
+      time,
+    });
 
-    io.sockets.emit('change_client_info', arr);
+    io.sockets.emit('change_users', planningPoker.users);
   });
 
-  // socket.on('disconnect', () => {
-  //   clients.slice(clients.indexOf(socket.id), 1);
-  //   console.log(`Client with id ${socket.id} disconnected`);
-  // });
+  socket.on('disconnect', () => {
+    console.log(`Разрыв соединения: ${socket.id}`);
+
+    planningPoker.removeUser(socket.id);
+
+    io.sockets.emit('change_users', planningPoker.users);
+  });
 });
 
 app.use(express.static(__dirname));
