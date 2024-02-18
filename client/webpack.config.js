@@ -1,9 +1,10 @@
 const path = require('path');
+const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const envVars = require('dotenv').config();
 
-module.exports = (env) => {
-  const { mode } = env;
-  const devtool = mode === 'development' ? { devtool: 'source-map' } : {};
+module.exports = () => {
+  const devtool = envVars.parsed.MODE === 'development' ? { devtool: 'source-map' } : {};
 
   return {
     entry: path.resolve(__dirname, 'src', 'index.tsx'),
@@ -59,11 +60,14 @@ module.exports = (env) => {
     },
     plugins: [
       new HtmlWebpackPlugin({
-        title: env.mode,
+        title: envVars.parsed.MODE,
         template: './src/index.html',
       }),
+      new webpack.DefinePlugin({
+        'process.env.API_URL': JSON.stringify(envVars.parsed.API_URL),
+      }),
     ],
-    mode: env.mode,
+    mode: envVars.parsed.MODE,
     resolve: {
       extensions: [ '.js', '.jsx', '.ts', '.tsx' ]
     },

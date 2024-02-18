@@ -1,11 +1,9 @@
 import { Server } from 'socket.io';
+import { PlanningPoker, User } from './planningPoker';
+import { UpdateUserParams } from './planningPoker/planningPoker';
 
 
-interface User {
-  id: string;
-  name: string;
-  time: number;
-}
+require('dotenv').config();
 
 const express = require('express');
 const app = express();
@@ -16,89 +14,65 @@ const io = new Server(http, {
   },
 })
 
-const host = '192.168.5.48';
+const API_URL = process.env.API_URL;
 const port = 3001;
-
-class PlanningPoker {
-  users: User[];
-
-  constructor() {
-    this.users = [];
-  }
-  
-  add (user: User) {
-    this.users.push(user);
-  }
-
-  updateUser (user: Partial<User>) {
-    const userIndex = this.users.findIndex(({ id }) => id === user.id);
-
-    this.users.splice(
-      userIndex,
-      1,
-      {
-        ...this.users[userIndex],
-        ...user,
-      },
-    );
-  }
-
-  removeUser (id: string) {
-    const userId = this.users.findIndex(({ id: userId }) => userId === id);
-
-    this.users.splice(userId, 1);
-  }
-}
 
 const planningPoker = new PlanningPoker();
 
-const { users } = planningPoker;
-
 io.on('connection', (socket) => {
+  const {
+    handshake: {
+      query: {
+        roomId: userRoomId,
+        userId: queryUserId,
+      },
+    },
+  } = socket;
+
+  const roomId = userRoomId && !Array.isArray(userRoomId) ? userRoomId : '';
+  const userId = queryUserId && !Array.isArray(queryUserId) ? queryUserId : '';
+
   console.log(`Новое подключение: ${socket.id}`);
 
-  socket.emit('client_connect', socket.id);
+  socket.join(roomId);
 
-  socket.emit('change_users', planningPoker.users);
+  socket.to(roomId).emit('change_users', planningPoker.rooms[roomId] || []);
 
-  socket.on('add_user', (id: string, client: string) => {
-    const currentClientIndex = users.findIndex(({ id: clientId }) => clientId === id);
-    const currentClient: User = currentClientIndex !== -1
-      ? users[currentClientIndex]
-      : {
-        id,
+  socket.on('user_connected', (client: string) => {
+    planningPoker.addUser(
+      {
+        id: userId,
         name: client,
-        time: 0,
-      };
+      },
+      roomId,
+    );
 
-    planningPoker.add(currentClient);
-
-    io.sockets.emit('change_users', planningPoker.users);
+    io.sockets.to(roomId).emit('change_users', planningPoker.rooms[roomId]);
   });
 
-  socket.on('choose_time', (id: string, time: number) => {
-    const currentClientIndex = users.findIndex(({ id: clientId }) => clientId === id);
-    if (currentClientIndex === -1) return;
+  socket.on('user_change_info', (userParams: UpdateUserParams) => {
 
     planningPoker.updateUser({
-      ...users[currentClientIndex],
-      time,
-    });
+      ...userParams,
+      id: userId,
+    },
+      roomId,
+    );
 
-    io.sockets.emit('change_users', planningPoker.users);
+    io.sockets.to(roomId).emit('change_users', planningPoker.rooms[roomId] || []);
   });
 
   socket.on('disconnect', () => {
     console.log(`Разрыв соединения: ${socket.id}`);
 
-    planningPoker.removeUser(socket.id);
+    // planningPoker.removeUser(userId, roomId);
 
-    io.sockets.emit('change_users', planningPoker.users);
+    io.sockets.to(roomId).emit('change_users', planningPoker.rooms[roomId] || []);
   });
 });
 
 app.use(express.static(__dirname));
 
-http.listen(port, host, () =>
-  console.log(`Server listens http://${host}:${port}`)
+http.listen(port, API_URL, () =>
+  console.log(`Server listens http://${API_URL}:${port}`)
 );

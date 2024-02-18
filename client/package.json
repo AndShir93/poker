@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.tsx",
   "scripts": {
-    "start": "webpack serve --open --env mode=development",
+    "start": "webpack serve --open",
     "build": "webpack --env mode=production",
     "lint": "npx eslint . --ext .tsx,.ts",
     "storybook": "start-storybook -p 6006",
@@ -15,11 +15,17 @@
   "author": "Andrey <wugandrey@gmail.com>",
   "license": "ISC",
   "dependencies": {
+    "@reduxjs/toolkit": "^2.0.1",
+    "@types/uuid": "^9.0.7",
     "bootstrap": "^5.3.2",
     "react": "^17.0.2",
     "react-bootstrap": "^2.9.1",
     "react-dom": "^17.0.2",
-    "socket.io-client": "^4.7.4"
+    "react-redux": "^9.1.0",
+    "react-router-dom": "^6.21.3",
+    "redux": "^5.0.1",
+    "socket.io-client": "^4.7.4",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
     "@babel/core": "^7.20.12",

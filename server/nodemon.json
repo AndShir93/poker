@@ -1,5 +1,5 @@
 {
-  "ignore": [".git", "node_modules", "dist"],
+  "ignore": [".git", "node_modules", "dist", "**/*.test.*"],
   "watch": ["./src"],
   "ext": "ts",
   "delay": 5
